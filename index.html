@@ -51,62 +51,64 @@
             animation: fadeIn 0.4s ease-out forwards;
         }
 
-        /* --- PRINT STYLES --- */
+        /* --- PRINT STYLES (COLORED) --- */
         @media print {
-            /* General Print Reset */
             body {
-                background-color: white !important;
-                color: black !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
+                background-color: white !important; /* Optional: save ink on bg, but keep elements colored */
+                color: black !important;
             }
-            
+
             .no-print {
                 display: none !important;
             }
 
-            /* Blank Template Mode */
+            /* Enable Background Colors in Print */
+            .category-card {
+                break-inside: avoid;
+                box-shadow: none !important;
+                border: 1px solid #ddd !important;
+            }
+
+            /* For Blank Template Logic */
             body.print-blank .checkbox-icon { display: none !important; }
             body.print-blank input[type="checkbox"] + div {
                 background-color: white !important;
                 border: 1px solid #000 !important;
             }
-            body.print-blank .category-card {
-                background-color: white !important;
-                border: 1px solid #ccc !important;
-                box-shadow: none !important;
-                color: black !important;
-                break-inside: avoid;
-            }
-            body.print-blank .category-header {
-                color: black !important;
-                border-bottom: 1px solid #eee;
-                background: none !important;
-            }
             body.print-blank .water-btn {
-                border: 1px solid #333 !important;
                 background: white !important;
-                color: #ccc !important;
+                border: 1px solid #000 !important;
+                color: #ddd !important;
+            }
+
+            /* For Report Mode - Force Colors */
+            body:not(.print-blank) .category-header {
+                /* Force background colors to show */
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact; 
             }
             
-            /* Report/Journal Mode */
-            body:not(.print-blank) .bg-gray-800 {
-                background-color: white !important;
-                color: black !important;
-                border: 1px solid #ddd !important;
-                box-shadow: none !important;
+            body:not(.print-blank) .water-btn.active {
+                background-color: #2563eb !important; /* Blue color */
+                color: white !important;
             }
-            body:not(.print-blank) .text-gray-300, 
-            body:not(.print-blank) .text-gray-400 {
+            
+            /* Ensure text inside dark cards is readable when printing if user chooses dark mode print, 
+               but usually standard print is light. Let's force light mode layout for print cleanliness but KEEP colors */
+            body {
+                background-color: #fff !important;
+                color: #000 !important;
+            }
+            .text-gray-300, .text-gray-400 {
                 color: #555 !important;
             }
-            body:not(.print-blank) .journal-entry {
-                border: 1px solid #000 !important;
-                page-break-inside: avoid;
-                margin-bottom: 1rem;
-            }
-            body:not(.print-blank) canvas {
+            
+            /* Chart resizing for print */
+            canvas {
                 max-height: 400px !important;
+                width: 100% !important;
             }
         }
     </style>
@@ -139,16 +141,50 @@
         // --- Configuration & Data Structure ---
         
         const CATEGORIES = {
-            PRAYER: { id: 'prayer', title: 'Salah (Prayer)', color: 'text-indigo-400', border: 'border-indigo-500', bg: 'bg-indigo-500/10', items: ['Tahajjud', 'Fajr', 'Sunrise', 'Duha', 'Dhuhr', 'Asr', 'Maghrib', 'Isha', 'Qiyam', 'Qada Hajah'] },
-            DEEN: { id: 'deen', title: 'Deen & Dhikr', color: 'text-violet-400', border: 'border-violet-500', bg: 'bg-violet-500/10', items: ['Quran Memorization', 'Daily Wird', 'Istighfar', 'Tasbih', 'Baqiyat Salihat', 'Hasbi Allah', 'Hawqala', 'Salawat'] },
-            HAIR: { id: 'hair', title: 'Hair Care', color: 'text-rose-400', border: 'border-rose-500', bg: 'bg-rose-500/10', items: ['Brushing', 'Moisturizing', 'Dandruff Drops', 'Density Drops', 'Derma', 'Acretin'] },
-            HANDS: { id: 'hands', title: 'Hand Care', color: 'text-pink-400', border: 'border-pink-500', bg: 'bg-pink-500/10', items: ['Nails', 'Moisturizing', 'Pore White'] },
-            FACE: { id: 'face', title: 'Face Care', color: 'text-fuchsia-400', border: 'border-fuchsia-500', bg: 'bg-fuchsia-500/10', items: ['Cleanser', 'Soap', 'Moisturizing', 'Shaving', 'Eye Contour', 'Night Routine', 'Morning Routine'] },
-            BODY: { id: 'body', title: 'Body Care', color: 'text-orange-400', border: 'border-orange-500', bg: 'bg-orange-500/10', items: ['Scrub', 'Moroccan Bath', 'Moisturizing', 'Oil', 'Shaving'] },
-            DARK_AREAS: { id: 'dark_areas', title: 'Targeted Care', color: 'text-amber-400', border: 'border-amber-500', bg: 'bg-amber-500/10', items: ['Scrub', 'Moisturizing', 'Whitening'] },
-            BROWS: { id: 'brows', title: 'Brows & Lashes', color: 'text-emerald-400', border: 'border-emerald-500', bg: 'bg-emerald-500/10', items: ['Serum', 'Shaving'] },
-            TASKS: { id: 'tasks', title: 'Growth & Tasks', color: 'text-teal-400', border: 'border-teal-500', bg: 'bg-teal-500/10', items: ['Huwaya Baytik', 'Scientific Center', 'Coursera', 'ZAmerican English'] },
-            SPORTS: { id: 'sports', title: 'Fitness', color: 'text-red-400', border: 'border-red-500', bg: 'bg-red-500/10', items: ['Cardio', 'Resistance', 'Abs', 'Legs', 'Glutes', 'Chest', 'Back'] }
+            PRAYER: { 
+                id: 'prayer', title: 'Salah (Prayer)', color: 'text-indigo-400', border: 'border-indigo-500', bg: 'bg-indigo-500/10', 
+                items: ['Tahajjud', 'Fajr', 'Sunrise', 'Duha', 'Dhuhr', 'Asr', 'Maghrib', 'Isha', 'Qiyam', 'Qada Hajah'] 
+            },
+            ADHKAR: { 
+                id: 'adhkar', title: 'Adhkar', color: 'text-sky-400', border: 'border-sky-500', bg: 'bg-sky-500/10', 
+                items: ['Morning Adhkar', 'Evening Adhkar', 'Sleep Adhkar'] 
+            },
+            DEEN: { 
+                id: 'deen', title: 'Deen & Quran', color: 'text-violet-400', border: 'border-violet-500', bg: 'bg-violet-500/10', 
+                items: ['Quran Memorization', 'Surat Al-Mulk', 'Tadabbur (Reflection)', 'Seerah Podcast', 'Daily Wird', 'Istighfar', 'Tasbih', 'Baqiyat Salihat', 'Hasbi Allah', 'Hawqala', 'Salawat'] 
+            },
+            HAIR: { 
+                id: 'hair', title: 'Hair Care', color: 'text-rose-400', border: 'border-rose-500', bg: 'bg-rose-500/10', 
+                items: ['Brushing', 'Moisturizing', 'Dandruff Drops', 'Density Drops', 'Derma', 'Acretin'] 
+            },
+            HANDS: { 
+                id: 'hands', title: 'Hand Care', color: 'text-pink-400', border: 'border-pink-500', bg: 'bg-pink-500/10', 
+                items: ['Nails', 'Moisturizing', 'Pore White'] 
+            },
+            FACE: { 
+                id: 'face', title: 'Face Care', color: 'text-fuchsia-400', border: 'border-fuchsia-500', bg: 'bg-fuchsia-500/10', 
+                items: ['Cleanser', 'Soap', 'Moisturizing', 'Shaving', 'Eye Contour', 'Night Routine', 'Morning Routine'] 
+            },
+            BODY: { 
+                id: 'body', title: 'Body Care', color: 'text-orange-400', border: 'border-orange-500', bg: 'bg-orange-500/10', 
+                items: ['Scrub', 'Moroccan Bath', 'Moisturizing', 'Oil', 'Shaving'] 
+            },
+            DARK_AREAS: { 
+                id: 'dark_areas', title: 'Targeted Care', color: 'text-amber-400', border: 'border-amber-500', bg: 'bg-amber-500/10', 
+                items: ['Scrub', 'Moisturizing', 'Whitening'] 
+            },
+            BROWS: { 
+                id: 'brows', title: 'Brows & Lashes', color: 'text-emerald-400', border: 'border-emerald-500', bg: 'bg-emerald-500/10', 
+                items: ['Serum', 'Shaving'] 
+            },
+            TASKS: { 
+                id: 'tasks', title: 'Growth & Tasks', color: 'text-teal-400', border: 'border-teal-500', bg: 'bg-teal-500/10', 
+                items: ['Huwaya Baytik', 'Scientific Center', 'Coursera', 'ZAmerican English'] 
+            },
+            SPORTS: { 
+                id: 'sports', title: 'Fitness', color: 'text-red-400', border: 'border-red-500', bg: 'bg-red-500/10', 
+                items: ['Cardio', 'Resistance', 'Abs', 'Legs', 'Glutes', 'Chest', 'Back'] 
+            }
         };
 
         const WATER_GOAL = 12;
@@ -166,8 +202,8 @@
                 if (chartInstance.current) chartInstance.current.destroy();
                 if (chartRef.current) {
                     const ctx = chartRef.current.getContext('2d');
-                    Chart.defaults.color = '#9CA3AF';
-                    Chart.defaults.borderColor = '#374151';
+                    Chart.defaults.color = '#6b7280'; // Darker for print visibility
+                    Chart.defaults.borderColor = '#e5e7eb';
                     chartInstance.current = new Chart(ctx, {
                         type: type,
                         data: data,
@@ -186,6 +222,7 @@
             const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
             const [view, setView] = useState('dashboard'); 
             const [data, setData] = useState({});
+            const fileInputRef = useRef(null);
 
             useEffect(() => {
                 const savedData = localStorage.getItem('glowTrackerData');
@@ -244,6 +281,31 @@
                 return total === 0 ? 0 : Math.round((completed / total) * 100);
             };
 
+            // --- DATA SYNC FUNCTIONS ---
+            const handleExport = () => {
+                const dataStr = JSON.stringify(data);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                const exportFileDefaultName = `glow_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+            };
+
+            const handleImport = (event) => {
+                const fileReader = new FileReader();
+                fileReader.readAsText(event.target.files[0], "UTF-8");
+                fileReader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        setData(importedData);
+                        alert("Data loaded successfully!");
+                    } catch (err) {
+                        alert("Error loading file. Please make sure it's a valid backup file.");
+                    }
+                };
+            };
+
             const printBlankLog = () => {
                 document.body.classList.add('print-blank');
                 window.print();
@@ -265,9 +327,20 @@
                                     </h1>
                                 </div>
 
-                                <div className="flex items-center gap-4 bg-gray-900 p-1 rounded-xl border border-gray-700">
-                                    <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${view === 'dashboard' ? 'bg-gray-800 text-white shadow-md border border-gray-600' : 'text-gray-400 hover:text-gray-200'}`}>Daily Log</button>
-                                    <button onClick={() => setView('analytics')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${view === 'analytics' ? 'bg-gray-800 text-white shadow-md border border-gray-600' : 'text-gray-400 hover:text-gray-200'}`}>Analytics & Journal</button>
+                                <div className="flex flex-wrap justify-center items-center gap-2">
+                                    <div className="flex items-center gap-2 bg-gray-900 p-1 rounded-xl border border-gray-700 mr-2">
+                                        <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${view === 'dashboard' ? 'bg-gray-800 text-white shadow-md border border-gray-600' : 'text-gray-400 hover:text-gray-200'}`}>Daily Log</button>
+                                        <button onClick={() => setView('analytics')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${view === 'analytics' ? 'bg-gray-800 text-white shadow-md border border-gray-600' : 'text-gray-400 hover:text-gray-200'}`}>Analytics</button>
+                                    </div>
+
+                                    {/* Data Sync Buttons */}
+                                    <button onClick={handleExport} className="flex items-center gap-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition" title="Download Backup">
+                                        <Icon name="ph-download-simple" /> Save
+                                    </button>
+                                    <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition" title="Upload Backup">
+                                        <Icon name="ph-upload-simple" /> Load
+                                    </button>
+                                    <input type="file" ref={fileInputRef} onChange={handleImport} className="hidden" accept=".json" />
                                 </div>
                             </div>
                         </div>
@@ -333,37 +406,37 @@
 
                             <button onClick={printBlankLog} className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition border border-gray-600 shadow-lg">
                                 <Icon name="ph-printer" className="text-lg" />
-                                <span>Print Blank Template</span>
+                                <span>Print Blank</span>
                             </button>
                         </div>
                     </div>
 
                     <div className="hidden print:block text-center mb-8"><h1 className="text-3xl font-bold mb-2 text-black">Daily Glow Tracker</h1><p className="text-gray-600">Date: ________________________</p></div>
 
-                    {/* Notes Section (New) */}
+                    {/* Notes Section */}
                     <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-lg category-card relative overflow-hidden">
-                        <div className="flex items-center gap-3 mb-4 text-pink-400">
+                        <div className="flex items-center gap-3 mb-4 text-pink-400 category-header">
                             <Icon name="ph-notebook" className="text-2xl" />
                             <h3 className="font-bold text-lg">Daily Reflections & Notes</h3>
                         </div>
                         <textarea
                             value={dayData.notes || ''}
                             onChange={(e) => updateNotes(e.target.value)}
-                            placeholder="Write your daily thoughts, gratitudes, or notes here..."
-                            className="w-full bg-gray-900 border border-gray-600 rounded-xl p-4 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent min-h-[120px] transition-all"
+                            placeholder="Write your daily thoughts..."
+                            className="w-full bg-gray-900 border border-gray-600 rounded-xl p-4 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent min-h-[100px] transition-all print:bg-white print:text-black print:border-gray-300"
                         ></textarea>
                     </div>
 
                     {/* Water */}
                     <div className="bg-gray-800/50 rounded-2xl border border-blue-900/30 p-6 relative overflow-hidden category-card">
-                        <div className="flex items-center gap-3 mb-4 text-blue-300">
+                        <div className="flex items-center gap-3 mb-4 text-blue-300 category-header">
                             <Icon name="ph-drop-fill" className="text-3xl text-blue-500" />
                             <h2 className="text-xl font-bold">Water Intake</h2>
                             <span className="text-sm bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30">Goal: 12 Cups</span>
                         </div>
                         <div className="grid grid-cols-6 md:grid-cols-12 gap-3">
                             {waterArr.map((filled, idx) => (
-                                <button key={idx} onClick={() => toggleWater(idx)} className={`water-btn aspect-square rounded-xl flex items-center justify-center transition-all duration-300 transform hover:scale-105 ${filled ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] border-blue-500' : 'bg-gray-800 text-gray-600 hover:border-blue-500/50 border-2 border-gray-700'}`}>
+                                <button key={idx} onClick={() => toggleWater(idx)} className={`water-btn aspect-square rounded-xl flex items-center justify-center transition-all duration-300 transform hover:scale-105 ${filled ? 'bg-blue-600 active text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] border-blue-500' : 'bg-gray-800 text-gray-600 hover:border-blue-500/50 border-2 border-gray-700'}`}>
                                     <Icon name={filled ? "ph-drop-fill" : "ph-drop"} className="text-2xl checkbox-icon" />
                                 </button>
                             ))}
@@ -405,12 +478,12 @@
 
         const AnalyticsView = ({ data }) => {
             const [timeFrame, setTimeFrame] = useState('week');
-            const [viewMode, setViewMode] = useState('stats'); // 'stats' or 'journal'
+            const [viewMode, setViewMode] = useState('stats');
             const [chartType, setChartType] = useState('bar');
 
             // Date filtering Logic
             const filteredDates = useMemo(() => {
-                const dates = Object.keys(data).sort().reverse(); // Newest first
+                const dates = Object.keys(data).sort().reverse(); 
                 const today = new Date();
                 const limit = new Date();
                 if (timeFrame === 'week') limit.setDate(today.getDate() - 7);
@@ -433,12 +506,12 @@
                 });
 
                 const bgColors = Object.values(CATEGORIES).map(c => c.color.replace('text-', '').replace('400', '').trim()).map(c => {
-                    const map = { indigo: '#6366f1', violet: '#8b5cf6', rose: '#f43f5e', pink: '#ec4899', fuchsia: '#d946ef', orange: '#f97316', amber: '#f59e0b', emerald: '#10b981', teal: '#14b8a6', red: '#ef4444' };
-                    return (map[c] || '#9ca3af') + '80'; // 50% opacity
+                    const map = { indigo: '#6366f1', violet: '#8b5cf6', sky: '#38bdf8', rose: '#f43f5e', pink: '#ec4899', fuchsia: '#d946ef', orange: '#f97316', amber: '#f59e0b', emerald: '#10b981', teal: '#14b8a6', red: '#ef4444' };
+                    return (map[c] || '#9ca3af') + 'cc'; // 80% opacity
                 });
                 return {
                     labels,
-                    datasets: [{ label: 'Completion Rate %', data: scores, backgroundColor: bgColors, borderColor: bgColors.map(c => c.replace('80', 'ff')), borderWidth: 1 }]
+                    datasets: [{ label: 'Completion Rate %', data: scores, backgroundColor: bgColors, borderColor: bgColors.map(c => c.replace('cc', 'ff')), borderWidth: 1 }]
                 };
             }, [data, filteredDates]);
 
