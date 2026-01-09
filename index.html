@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glow Up & Deen Tracker</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #111827; /* Dark bg */
+            color: #f3f4f6;
+        }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+
+        /* Checkbox Styling */
+        .checkbox-wrapper input:checked + div {
+            background-color: currentColor;
+            border-color: currentColor;
+        }
+        .checkbox-wrapper input:checked + div svg {
+            display: block;
+        }
+        
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        /* --- PRINT STYLES --- */
+        @media print {
+            /* General Print Reset */
+            body {
+                background-color: white !important;
+                color: black !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
+
+            /* Blank Template Mode */
+            body.print-blank .checkbox-icon { display: none !important; }
+            body.print-blank input[type="checkbox"] + div {
+                background-color: white !important;
+                border: 1px solid #000 !important;
+            }
+            body.print-blank .category-card {
+                background-color: white !important;
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                color: black !important;
+                break-inside: avoid;
+            }
+            body.print-blank .category-header {
+                color: black !important;
+                border-bottom: 1px solid #eee;
+                background: none !important;
+            }
+            body.print-blank .water-btn {
+                border: 1px solid #333 !important;
+                background: white !important;
+                color: #ccc !important;
+            }
+            
+            /* Report/Journal Mode */
+            body:not(.print-blank) .bg-gray-800 {
+                background-color: white !important;
+                color: black !important;
+                border: 1px solid #ddd !important;
+                box-shadow: none !important;
+            }
+            body:not(.print-blank) .text-gray-300, 
+            body:not(.print-blank) .text-gray-400 {
+                color: #555 !important;
+            }
+            body:not(.print-blank) .journal-entry {
+                border: 1px solid #000 !important;
+                page-break-inside: avoid;
+                margin-bottom: 1rem;
+            }
+            body:not(.print-blank) canvas {
+                max-height: 400px !important;
+            }
+        }
+    </style>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            bg: '#111827',
+                            card: '#1F2937',
+                            hover: '#374151',
+                            text: '#F3F4F6',
+                            muted: '#9CA3AF'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- Configuration & Data Structure ---
+        
+        const CATEGORIES = {
+            PRAYER: { id: 'prayer', title: 'Salah (Prayer)', color: 'text-indigo-400', border: 'border-indigo-500', bg: 'bg-indigo-500/10', items: ['Tahajjud', 'Fajr', 'Sunrise', 'Duha', 'Dhuhr', 'Asr', 'Maghrib', 'Isha', 'Qiyam', 'Qada Hajah'] },
+            DEEN: { id: 'deen', title: 'Deen & Dhikr', color: 'text-violet-400', border: 'border-violet-500', bg: 'bg-violet-500/10', items: ['Quran Memorization', 'Daily Wird', 'Istighfar', 'Tasbih', 'Baqiyat Salihat', 'Hasbi Allah', 'Hawqala', 'Salawat'] },
+            HAIR: { id: 'hair', title: 'Hair Care', color: 'text-rose-400', border: 'border-rose-500', bg: 'bg-rose-500/10', items: ['Brushing', 'Moisturizing', 'Dandruff Drops', 'Density Drops', 'Derma', 'Acretin'] },
+            HANDS: { id: 'hands', title: 'Hand Care', color: 'text-pink-400', border: 'border-pink-500', bg: 'bg-pink-500/10', items: ['Nails', 'Moisturizing', 'Pore White'] },
+            FACE: { id: 'face', title: 'Face Care', color: 'text-fuchsia-400', border: 'border-fuchsia-500', bg: 'bg-fuchsia-500/10', items: ['Cleanser', 'Soap', 'Moisturizing', 'Shaving', 'Eye Contour', 'Night Routine', 'Morning Routine'] },
+            BODY: { id: 'body', title: 'Body Care', color: 'text-orange-400', border: 'border-orange-500', bg: 'bg-orange-500/10', items: ['Scrub', 'Moroccan Bath', 'Moisturizing', 'Oil', 'Shaving'] },
+            DARK_AREAS: { id: 'dark_areas', title: 'Targeted Care', color: 'text-amber-400', border: 'border-amber-500', bg: 'bg-amber-500/10', items: ['Scrub', 'Moisturizing', 'Whitening'] },
+            BROWS: { id: 'brows', title: 'Brows & Lashes', color: 'text-emerald-400', border: 'border-emerald-500', bg: 'bg-emerald-500/10', items: ['Serum', 'Shaving'] },
+            TASKS: { id: 'tasks', title: 'Growth & Tasks', color: 'text-teal-400', border: 'border-teal-500', bg: 'bg-teal-500/10', items: ['Huwaya Baytik', 'Scientific Center', 'Coursera', 'ZAmerican English'] },
+            SPORTS: { id: 'sports', title: 'Fitness', color: 'text-red-400', border: 'border-red-500', bg: 'bg-red-500/10', items: ['Cardio', 'Resistance', 'Abs', 'Legs', 'Glutes', 'Chest', 'Back'] }
+        };
+
+        const WATER_GOAL = 12;
+
+        // --- Helper Components ---
+
+        const Icon = ({ name, className }) => <i className={`ph ${name} ${className}`}></i>;
+
+        // --- Chart Component ---
+        const ChartComponent = ({ type, data, options }) => {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                if (chartInstance.current) chartInstance.current.destroy();
+                if (chartRef.current) {
+                    const ctx = chartRef.current.getContext('2d');
+                    Chart.defaults.color = '#9CA3AF';
+                    Chart.defaults.borderColor = '#374151';
+                    chartInstance.current = new Chart(ctx, {
+                        type: type,
+                        data: data,
+                        options: { ...options, responsive: true, maintainAspectRatio: false }
+                    });
+                }
+                return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+            }, [type, data, options]);
+
+            return <canvas ref={chartRef}></canvas>;
+        };
+
+        // --- Main App Component ---
+
+        const App = () => {
+            const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
+            const [view, setView] = useState('dashboard'); 
+            const [data, setData] = useState({});
+
+            useEffect(() => {
+                const savedData = localStorage.getItem('glowTrackerData');
+                if (savedData) setData(JSON.parse(savedData));
+            }, []);
+
+            useEffect(() => {
+                if (Object.keys(data).length > 0) localStorage.setItem('glowTrackerData', JSON.stringify(data));
+            }, [data]);
+
+            const updateData = (updates) => {
+                setData(prev => {
+                    const dayData = prev[currentDate] || {};
+                    return { ...prev, [currentDate]: { ...dayData, ...updates } };
+                });
+            };
+
+            const toggleHabit = (catId, item) => {
+                setData(prev => {
+                    const dayData = prev[currentDate] || {};
+                    const catData = dayData[catId] || {};
+                    return {
+                        ...prev,
+                        [currentDate]: {
+                            ...dayData,
+                            [catId]: { ...catData, [item]: !catData[item] }
+                        }
+                    };
+                });
+            };
+
+            const toggleWater = (index) => {
+                const dayData = data[currentDate] || {};
+                const waterArr = dayData.waterArr || Array(WATER_GOAL).fill(false);
+                const newWaterArr = [...waterArr];
+                newWaterArr[index] = !newWaterArr[index];
+                updateData({ waterArr: newWaterArr });
+            };
+
+            const updateNotes = (noteText) => {
+                updateData({ notes: noteText });
+            };
+
+            const getDailyProgress = () => {
+                const dayData = data[currentDate];
+                if (!dayData) return 0;
+                let total = 0, completed = 0;
+                Object.values(CATEGORIES).forEach(cat => {
+                    cat.items.forEach(item => {
+                        total++;
+                        if (dayData[cat.id]?.[item]) completed++;
+                    });
+                });
+                total += WATER_GOAL;
+                completed += (dayData.waterArr || []).filter(Boolean).length;
+                return total === 0 ? 0 : Math.round((completed / total) * 100);
+            };
+
+            const printBlankLog = () => {
+                document.body.classList.add('print-blank');
+                window.print();
+                document.body.classList.remove('print-blank');
+            };
+
+            return (
+                <div className="min-h-screen pb-12 bg-gray-900 text-gray-100 selection:bg-pink-500 selection:text-white">
+                    {/* Header */}
+                    <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-50 no-print">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-gradient-to-tr from-pink-600 to-purple-600 text-white p-2 rounded-lg shadow-lg shadow-purple-500/20">
+                                        <Icon name="ph-sparkle-fill" className="text-2xl" />
+                                    </div>
+                                    <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-purple-400">
+                                        Glow & Grow
+                                    </h1>
+                                </div>
+
+                                <div className="flex items-center gap-4 bg-gray-900 p-1 rounded-xl border border-gray-700">
+                                    <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${view === 'dashboard' ? 'bg-gray-800 text-white shadow-md border border-gray-600' : 'text-gray-400 hover:text-gray-200'}`}>Daily Log</button>
+                                    <button onClick={() => setView('analytics')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${view === 'analytics' ? 'bg-gray-800 text-white shadow-md border border-gray-600' : 'text-gray-400 hover:text-gray-200'}`}>Analytics & Journal</button>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Content */}
+                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        {view === 'dashboard' ? (
+                            <DashboardView 
+                                currentDate={currentDate} 
+                                setCurrentDate={setCurrentDate}
+                                data={data}
+                                toggleHabit={toggleHabit}
+                                toggleWater={toggleWater}
+                                updateNotes={updateNotes}
+                                progress={getDailyProgress()}
+                                printBlankLog={printBlankLog}
+                            />
+                        ) : (
+                            <AnalyticsView data={data} />
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        // --- Dashboard View ---
+
+        const DashboardView = ({ currentDate, setCurrentDate, data, toggleHabit, toggleWater, updateNotes, progress, printBlankLog }) => {
+            const dayData = data[currentDate] || {};
+            const waterArr = dayData.waterArr || Array(WATER_GOAL).fill(false);
+
+            const changeDate = (days) => {
+                const date = new Date(currentDate);
+                date.setDate(date.getDate() + days);
+                setCurrentDate(date.toISOString().split('T')[0]);
+            };
+
+            return (
+                <div className="space-y-8 animate-fade-in">
+                    
+                    {/* Controls */}
+                    <div className="bg-gray-800 rounded-3xl border border-gray-700 p-6 relative overflow-hidden no-print">
+                        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-pink-500/10 rounded-full blur-3xl"></div>
+                        <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
+                        
+                        <div className="relative flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div className="flex items-center gap-4 bg-gray-900 rounded-full px-4 py-2 border border-gray-700">
+                                <button onClick={() => changeDate(-1)} className="p-2 hover:bg-gray-700 rounded-full transition text-gray-400 hover:text-white"><Icon name="ph-caret-left" /></button>
+                                <input type="date" value={currentDate} onChange={(e) => setCurrentDate(e.target.value)} className="bg-transparent border-none font-semibold text-lg focus:ring-0 text-white color-scheme-dark" />
+                                <button onClick={() => changeDate(1)} className="p-2 hover:bg-gray-700 rounded-full transition text-gray-400 hover:text-white"><Icon name="ph-caret-right" /></button>
+                            </div>
+
+                            <div className="flex-1 w-full md:max-w-md">
+                                <div className="flex justify-between text-sm font-semibold text-gray-400 mb-2">
+                                    <span>Daily Progress</span>
+                                    <span className="text-white">{progress}%</span>
+                                </div>
+                                <div className="w-full bg-gray-900 rounded-full h-4 shadow-inner overflow-hidden border border-gray-700">
+                                    <div className="h-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 transition-all duration-700 ease-out shadow-[0_0_10px_rgba(236,72,153,0.5)]" style={{ width: `${progress}%` }}></div>
+                                </div>
+                            </div>
+
+                            <button onClick={printBlankLog} className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition border border-gray-600 shadow-lg">
+                                <Icon name="ph-printer" className="text-lg" />
+                                <span>Print Blank Template</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="hidden print:block text-center mb-8"><h1 className="text-3xl font-bold mb-2 text-black">Daily Glow Tracker</h1><p className="text-gray-600">Date: ________________________</p></div>
+
+                    {/* Notes Section (New) */}
+                    <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-lg category-card relative overflow-hidden">
+                        <div className="flex items-center gap-3 mb-4 text-pink-400">
+                            <Icon name="ph-notebook" className="text-2xl" />
+                            <h3 className="font-bold text-lg">Daily Reflections & Notes</h3>
+                        </div>
+                        <textarea
+                            value={dayData.notes || ''}
+                            onChange={(e) => updateNotes(e.target.value)}
+                            placeholder="Write your daily thoughts, gratitudes, or notes here..."
+                            className="w-full bg-gray-900 border border-gray-600 rounded-xl p-4 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-pink-500 focus:border-transparent min-h-[120px] transition-all"
+                        ></textarea>
+                    </div>
+
+                    {/* Water */}
+                    <div className="bg-gray-800/50 rounded-2xl border border-blue-900/30 p-6 relative overflow-hidden category-card">
+                        <div className="flex items-center gap-3 mb-4 text-blue-300">
+                            <Icon name="ph-drop-fill" className="text-3xl text-blue-500" />
+                            <h2 className="text-xl font-bold">Water Intake</h2>
+                            <span className="text-sm bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30">Goal: 12 Cups</span>
+                        </div>
+                        <div className="grid grid-cols-6 md:grid-cols-12 gap-3">
+                            {waterArr.map((filled, idx) => (
+                                <button key={idx} onClick={() => toggleWater(idx)} className={`water-btn aspect-square rounded-xl flex items-center justify-center transition-all duration-300 transform hover:scale-105 ${filled ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] border-blue-500' : 'bg-gray-800 text-gray-600 hover:border-blue-500/50 border-2 border-gray-700'}`}>
+                                    <Icon name={filled ? "ph-drop-fill" : "ph-drop"} className="text-2xl checkbox-icon" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Categories */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {Object.values(CATEGORIES).map(cat => (
+                            <div key={cat.id} className="category-card bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden hover:border-gray-600 transition-all duration-300 shadow-lg">
+                                <div className={`category-header ${cat.bg} p-4 flex items-center justify-between border-b border-gray-700/50`}>
+                                    <div className={`flex items-center gap-2 ${cat.color}`}><Icon name={cat.icon} className="text-xl" /><h3 className="font-bold">{cat.title}</h3></div>
+                                    <span className="text-xs bg-gray-900/50 text-gray-300 px-2 py-1 rounded-full border border-gray-600 no-print">{cat.items.filter(item => dayData[cat.id]?.[item]).length}/{cat.items.length}</span>
+                                </div>
+                                <div className="p-4 space-y-3">
+                                    {cat.items.map(item => {
+                                        const isChecked = dayData[cat.id]?.[item] || false;
+                                        return (
+                                            <label key={item} className="flex items-center gap-3 cursor-pointer group checkbox-wrapper select-none">
+                                                <div className="relative">
+                                                    <input type="checkbox" className="peer sr-only" checked={isChecked} onChange={() => toggleHabit(cat.id, item)} />
+                                                    <div className={`w-5 h-5 border rounded transition-all duration-200 flex items-center justify-center ${isChecked ? `text-white ${cat.color.replace('text-', 'bg-').replace('400', '600')} border-transparent shadow-[0_0_10px_currentColor]` : 'border-gray-600 bg-gray-900 group-hover:border-gray-500'}`}>
+                                                        <Icon name="ph-check" className="hidden text-xs font-bold checkbox-icon" />
+                                                    </div>
+                                                </div>
+                                                <span className={`text-sm transition-colors ${isChecked ? 'text-gray-500 line-through' : 'text-gray-300 font-medium group-hover:text-white'}`}>{item}</span>
+                                            </label>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Analytics View ---
+
+        const AnalyticsView = ({ data }) => {
+            const [timeFrame, setTimeFrame] = useState('week');
+            const [viewMode, setViewMode] = useState('stats'); // 'stats' or 'journal'
+            const [chartType, setChartType] = useState('bar');
+
+            // Date filtering Logic
+            const filteredDates = useMemo(() => {
+                const dates = Object.keys(data).sort().reverse(); // Newest first
+                const today = new Date();
+                const limit = new Date();
+                if (timeFrame === 'week') limit.setDate(today.getDate() - 7);
+                if (timeFrame === 'month') limit.setDate(today.getDate() - 30);
+                if (timeFrame === 'year') limit.setDate(today.getDate() - 365);
+                return dates.filter(d => new Date(d) >= limit);
+            }, [data, timeFrame]);
+
+            const chartData = useMemo(() => {
+                const labels = Object.values(CATEGORIES).map(c => c.title);
+                const scores = Object.values(CATEGORIES).map(cat => {
+                    let total = 0, completed = 0;
+                    filteredDates.forEach(date => {
+                        cat.items.forEach(item => {
+                            total++;
+                            if (data[date]?.[cat.id]?.[item]) completed++;
+                        });
+                    });
+                    return total === 0 ? 0 : Math.round((completed / total) * 100);
+                });
+
+                const bgColors = Object.values(CATEGORIES).map(c => c.color.replace('text-', '').replace('400', '').trim()).map(c => {
+                    const map = { indigo: '#6366f1', violet: '#8b5cf6', rose: '#f43f5e', pink: '#ec4899', fuchsia: '#d946ef', orange: '#f97316', amber: '#f59e0b', emerald: '#10b981', teal: '#14b8a6', red: '#ef4444' };
+                    return (map[c] || '#9ca3af') + '80'; // 50% opacity
+                });
+                return {
+                    labels,
+                    datasets: [{ label: 'Completion Rate %', data: scores, backgroundColor: bgColors, borderColor: bgColors.map(c => c.replace('80', 'ff')), borderWidth: 1 }]
+                };
+            }, [data, filteredDates]);
+
+            const journalEntries = useMemo(() => {
+                return filteredDates
+                    .filter(date => data[date]?.notes && data[date].notes.trim().length > 0)
+                    .map(date => ({ date, text: data[date].notes }));
+            }, [data, filteredDates]);
+
+            const printReport = () => window.print();
+
+            return (
+                <div className="space-y-8 animate-fade-in">
+                     <div className="bg-gray-800 p-6 rounded-3xl border border-gray-700 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+                        <div className="flex items-center gap-4">
+                            <h2 className="text-2xl font-bold text-white">Performance Analytics</h2>
+                            <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">
+                                <button onClick={() => setViewMode('stats')} className={`px-4 py-1.5 rounded-md text-sm transition ${viewMode === 'stats' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Stats</button>
+                                <button onClick={() => setViewMode('journal')} className={`px-4 py-1.5 rounded-md text-sm transition ${viewMode === 'journal' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Journal</button>
+                            </div>
+                        </div>
+                        
+                        <div className="flex gap-4">
+                            {viewMode === 'stats' && (
+                                <select value={chartType} onChange={(e) => setChartType(e.target.value)} className="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-pink-500 focus:border-pink-500 block p-2.5">
+                                    <option value="bar">Bar Chart</option>
+                                    <option value="radar">Radar Chart</option>
+                                    <option value="polarArea">Polar Area</option>
+                                </select>
+                            )}
+
+                            <div className="flex bg-gray-900 p-1 rounded-lg border border-gray-700">
+                                {['week', 'month', 'year'].map(t => (
+                                    <button key={t} onClick={() => setTimeFrame(t)} className={`px-4 py-2 rounded-md capitalize text-sm font-medium transition-colors ${timeFrame === t ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}>{t}</button>
+                                ))}
+                            </div>
+
+                            <button onClick={printReport} className="p-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition" title="Print Current View">
+                                <Icon name="ph-printer" className="text-lg" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="hidden print:block text-center mb-8 text-black">
+                        <h2 className="text-2xl font-bold">{viewMode === 'stats' ? 'Performance Report' : 'Journal History'} ({timeFrame})</h2>
+                    </div>
+
+                    {viewMode === 'stats' ? (
+                        <>
+                            <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl h-96 relative print:h-auto print:border-none print:shadow-none category-card">
+                                <ChartComponent type={chartType} data={chartData} options={{ scales: chartType === 'bar' ? { y: { beginAtZero: true, max: 100, grid: { color: '#374151' } }, x: { grid: { color: '#374151' } } } : { r: { grid: { color: '#374151' }, angleLines: { color: '#374151' }, suggestedMin: 0, suggestedMax: 100 } }, plugins: { legend: { labels: { color: '#9CA3AF' } } } }} />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 no-print">
+                                {chartData.labels.map((label, i) => (
+                                    <div key={label} className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between">
+                                        <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: chartData.datasets[0].backgroundColor[i] }}></div><span className="text-gray-300 font-medium">{label}</span></div>
+                                        <span className="text-xl font-bold text-white">{chartData.datasets[0].data[i]}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        /* Journal View */
+                        <div className="grid grid-cols-1 gap-6">
+                            {journalEntries.length === 0 ? (
+                                <div className="text-center py-20 text-gray-500 border border-dashed border-gray-700 rounded-2xl">
+                                    <Icon name="ph-notebook" className="text-4xl mb-2 opacity-50" />
+                                    <p>No journal entries found for this period.</p>
+                                </div>
+                            ) : (
+                                journalEntries.map((entry) => (
+                                    <div key={entry.date} className="journal-entry bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg break-inside-avoid">
+                                        <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-700/50 print:border-gray-200">
+                                            <div className="bg-pink-500/10 p-2 rounded-lg text-pink-400 print:bg-gray-100 print:text-black">
+                                                <Icon name="ph-calendar-blank" className="text-xl" />
+                                            </div>
+                                            <span className="text-lg font-bold text-white print:text-black">
+                                                {new Date(entry.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                            </span>
+                                        </div>
+                                        <div className="text-gray-300 leading-relaxed whitespace-pre-wrap print:text-black font-serif text-lg">
+                                            {entry.text}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
